@@ -1,0 +1,642 @@
+Phase 1: Prepare Source Application for Migration
+
+Step 1.1: Update Connection String to Azure SQL Database
+First, let's point the application to Azure SQL Database before migration:
+
+RDP to Web Server
+Azure Portal → Virtual Machines
+Click techcorp-webserver-legacy
+Click "Connect" → "RDP"
+Username: techcorpadmin
+Password: TechCorp2024!@#
+
+Locate Application Files
+Open File Explorer
+Navigate to: C:\inetpub\wwwroot\techcorp\
+Find web.config file
+
+Backup Current Configuration
+Right-click web.config
+"Copy", then "Paste"
+Rename copy to web.config.backup
+
+Edit Connection String
+Right-click web.config → "Open with" → "Notepad"
+Replace the entire web.config content with:
+
+xml<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <connectionStrings>
+    <add name="DefaultConnection" 
+         connectionString="Server=tcp:techcorp-sql-server-prod.database.windows.net,1433;Initial Catalog=TechCorpDB-Prod;Persist Security Info=False;User ID=sqladmin;Password=TechCorpAzure2024!@#;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;" 
+         providerName="System.Data.SqlClient" />
+  </connectionStrings>
+  <system.web>
+    <compilation targetFramework="4.8" />
+  </system.web>
+  <system.webServer>
+    <defaultDocument>
+      <files>
+        <clear />
+        <add value="Default.aspx" />
+      </files>
+    </defaultDocument>
+  </system.webServer>
+</configuration>
+
+Save the file (Ctrl+S)
+
+Update Default.aspx to Connect to Azure SQL
+Open Default.aspx in Notepad
+Replace entire content with:
+
+asp<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Configuration" %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TechCorp Manufacturing</title>
+</head>
+<body>
+    <h1>TechCorp Manufacturing</h1>
+    <p>Legacy ERP System - ASP.NET Framework 4.8</p>
+    <p>Server Time: <%= DateTime.Now.ToString() %></p>
+    <p>Database: Azure SQL Database (TechCorpDB-Prod)</p>
+    
+    <h3>Live Dashboard</h3>
+    <ul>
+        <%
+        string connectionString = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
+        using (SqlConnection conn = new SqlConnection(connectionString))
+        {
+            try 
+            {
+                conn.Open();
+                
+                // Get employee count
+                SqlCommand empCmd = new SqlCommand("SELECT COUNT(*) FROM Employees", conn);
+                int employeeCount = (int)empCmd.ExecuteScalar();
+                
+                // Get product count  
+                SqlCommand prodCmd = new SqlCommand("SELECT COUNT(*) FROM Products", conn);
+                int productCount = (int)prodCmd.ExecuteScalar();
+                
+                // Get order count
+                SqlCommand orderCmd = new SqlCommand("SELECT COUNT(*) FROM Orders", conn);
+                int orderCount = (int)orderCmd.ExecuteScalar();
+                
+                Response.Write("<li>Total Employees: " + employeeCount.ToString() + "</li>");
+                Response.Write("<li>Active Products: " + productCount.ToString() + "</li>");
+                Response.Write("<li>Total Orders: " + orderCount.ToString() + "</li>");
+                Response.Write("<li style='color: green;'>✅ Azure SQL Database Connected</li>");
+            }
+            catch (Exception ex)
+            {
+                Response.Write("<li style='color: red;'>❌ Database Connection Error: " + ex.Message + "</li>");
+            }
+        }
+        %>
+    </ul>
+    
+    <h3>Quick Actions</h3>
+    <ul>
+        <li><a href="employees.aspx">View Employees</a></li>
+        <li><a href="products.aspx">View Products</a></li>
+        <li><a href="orders.aspx">View Orders</a></li>
+    </ul>
+</body>
+</html>
+
+Save the file
+
+Create employees.aspx
+In same directory (C:\inetpub\wwwroot\techcorp\)
+Create new file: employees.aspx
+Add this content:
+
+asp<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Configuration" %>
+<!DOCTYPE html>
+<html>
+<head><title>Employees - TechCorp</title></head>
+<body>
+    <h1>Employees</h1>
+    <a href="Default.aspx">← Back to Dashboard</a>
+    <table border="1">
+        <tr><th>ID</th><th>Name</th><th>Department</th></tr>
+        <%
+        string connectionString = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
+        using (SqlConnection conn = new SqlConnection(connectionString))
+        {
+            conn.Open();
+            SqlCommand cmd = new SqlCommand("SELECT TOP 10 EmployeeID, FirstName + ' ' + LastName AS Name, Department FROM Employees", conn);
+            SqlDataReader reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Response.Write("<tr><td>" + reader["EmployeeID"] + "</td><td>" + reader["Name"] + "</td><td>" + reader["Department"] + "</td></tr>");
+            }
+        }
+        %>
+    </table>
+</body>
+</html>
+
+Create products.aspx
+Create new file: products.aspx
+Add this content:
+
+asp<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Configuration" %>
+<!DOCTYPE html>
+<html>
+<head><title>Products - TechCorp</title></head>
+<body>
+    <h1>Products</h1>
+    <a href="Default.aspx">← Back to Dashboard</a>
+    <table border="1">
+        <tr><th>ID</th><th>Product Name</th><th>Price</th></tr>
+        <%
+        string connectionString = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
+        using (SqlConnection conn = new SqlConnection(connectionString))
+        {
+            conn.Open();
+            SqlCommand cmd = new SqlCommand("SELECT TOP 10 ProductID, ProductName, Price FROM Products", conn);
+            SqlDataReader reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Response.Write("<tr><td>" + reader["ProductID"] + "</td><td>" + reader["ProductName"] + "</td><td>$" + reader["Price"] + "</td></tr>");
+            }
+        }
+        %>
+    </table>
+</body>
+</html>
+
+Create orders.aspx
+Create new file: orders.aspx
+Add this content:
+
+asp<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Configuration" %>
+<!DOCTYPE html>
+<html>
+<head><title>Orders - TechCorp</title></head>
+<body>
+    <h1>Orders</h1>
+    <a href="Default.aspx">← Back to Dashboard</a>
+    <table border="1">
+        <tr><th>Order ID</th><th>Customer</th><th>Order Date</th></tr>
+        <%
+        string connectionString = ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString;
+        using (SqlConnection conn = new SqlConnection(connectionString))
+        {
+            conn.Open();
+            SqlCommand cmd = new SqlCommand("SELECT TOP 10 OrderID, CustomerName, OrderDate FROM Orders", conn);
+            SqlDataReader reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Response.Write("<tr><td>" + reader["OrderID"] + "</td><td>" + reader["CustomerName"] + "</td><td>" + reader["OrderDate"] + "</td></tr>");
+            }
+        }
+        %>
+    </table>
+</body>
+</html>
+
+
+Step 1.2: Document Application Configuration
+
+Record IIS Settings
+In IIS Manager, click "techcorp" application
+Note ".NET Framework version" (should be v4.0)
+Note "Managed pipeline mode" (likely Integrated)
+
+Document Dependencies
+Check web.config for special configurations
+Note any custom modules or handlers
+Check for special folder permissions
+
+
+Phase 2: Install and Configure App Service Migration Assistant
+Step 2.1: Download Migration Assistant on Web Server
+
+Open Browser on Web Server
+Still in RDP session on techcorp-webserver-legacy
+Open Internet Explorer or Edge
+
+Download Migration Assistant
+Go to: https://appmigration.microsoft.com/readiness
+Click "Download Migration Assistant"
+Save to Downloads folder
+File name: AppServiceMigrationAssistant.msi
+
+Install Migration Assistant
+Navigate to Downloads folder
+Right-click AppServiceMigrationAssistant.msi
+"Run as administrator"
+Accept license terms
+Use default installation path
+Click "Install"
+
+Step 2.2: Launch and Configure Migration Assistant
+
+Start Migration Assistant
+Start Menu → "Azure App Service Migration Assistant"
+Application will open in browser
+
+
+Initial Assessment
+Click "Assess your application"
+Website to assess: Select "techcorp" from dropdown
+Click "Next"
+
+Review Assessment Results
+Wait for assessment to complete (2-3 minutes)
+Review compatibility findings:
+
+ASP.NET 4.8: Should show compatible
+IIS features: Review any warnings
+Database connections: May show warning (already addressed)
+
+Click "Next" to proceed
+
+Phase 3: Create Azure App Service Environment
+Step 3.1: Azure Authentication Setup
+MFA Workaround: Use Service Principal from Part 2 or browser authentication
+
+Sign in to Azure
+In Migration Assistant, click "Sign in to Azure"
+Option 1: Use browser authentication (recommended)
+Click "Sign in with browser"
+Complete MFA authentication in browser
+
+Option 2: Use Service Principal from Day 2
+Enter tenant ID, client ID, and secret from Day 2
+Select Subscription and Resource Group
+Subscription: Your Azure subscription
+Resource Group: Select rg-techcorp-migration
+
+Step 3.2: Create App Service Plan
+
+App Service Plan Configuration
+Create new App Service Plan: Yes
+App Service Plan name: techcorp-app-service-plan
+Location: Same as your other resources (e.g., East US)
+Pricing tier: S1 Standard (suitable for production workloads)
+Operating System: Windows
+
+
+App Service Configuration
+App Service name: techcorp-web-app-prod (must be globally unique)
+Runtime stack: .NET Framework 4.8
+Operating System: Windows
+
+Step 3.3: Configure Migration Settings
+
+Migration Options
+Include content: Yes (migrate application files)
+Include configuration: Yes (migrate IIS settings)
+Hybrid connections: No (not needed since using Azure SQL)
+
+
+Review Migration Plan
+Source: techcorp application on current server
+Target: techcorp-web-app-prod.azurewebsites.net
+Framework: .NET Framework 4.8
+Database: Will use Azure SQL Database connection string
+
+Phase 4: Execute Application Migration
+Step 4.1: Start Migration Process
+
+Begin Migration
+Review all settings one final time
+Click "Migrate"
+Migration will start automatically
+
+Monitor Migration Progress
+File copy progress: Watch application files being copied
+Configuration migration: IIS settings being transferred
+Estimated time: 10-20 minutes depending on application size
+
+Monitor for Issues
+Watch for any red error messages
+Note any warnings about unsupported features
+Common warnings:
+Custom IIS modules (may need manual configuration)
+File permissions (handled automatically)
+Registry dependencies (may need App Service configuration)
+
+Step 4.2: Handle Migration Errors
+Common Issue: Authentication Timeout
+Error: "Failed to authenticate to Azure"
+Solution: Re-authenticate using browser option
+
+Common Issue: App Service Name Conflict
+Error: "App Service name already exists"
+Solution: Use different name like techcorp-web-app-prod-2024
+
+Common Issue: File Copy Failures
+Error: Large files or special permissions
+Solution: Note failed files for manual upload later
+
+Phase 5: Post-Migration Configuration
+Step 5.1: Verify App Service Creation
+
+Check Azure Portal
+Open new browser tab to Azure Portal
+Navigate to "App Services"
+Find techcorp-web-app-prod
+Status should show "Running"
+
+Review App Service Settings
+
+Click your App Service
+Overview: Note the URL https://techcorp-web-app-prod.azurewebsites.net
+Configuration: Verify .NET Framework 4.8
+Console: Available for troubleshooting
+
+Step 5.2: Configure Connection Strings in App Service
+Important: Verify connection string is properly configured
+
+Navigate to App Service Configuration
+Azure Portal → App Services → techcorp-web-app-prod
+Click "Configuration" in left menu
+
+Check Connection Strings
+Click "Connection strings" tab
+Should see DefaultConnection from migration
+If missing, add manually:
+Click "+ New connection string"
+Name: DefaultConnection
+Value: Server=tcp:techcorp-sql-server-prod.database.windows.net,1433;Initial Catalog=TechCorpDB-Prod;Persist Security Info=False;User ID=sqladmin;Password=TechCorpAzure2024!@#;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
+Type: SQLServer
+Click "OK"
+Save Configuration
+Click "Save" at top
+Wait for restart notification
+Click "Continue" to restart app
+
+Step 5.3: Configure Application Settings
+
+Add Application Settings
+Still in "Configuration" → "Application settings" tab
+Common settings to add:
+Key: ASPNET_ENVIRONMENT, Value: Production
+Key: SCM_DO_BUILD_DURING_DEPLOYMENT, Value: false
+Configure Platform Settings
+Click "General settings" tab
+Stack: .NET Framework
+Version: v4.8
+Platform: 32 Bit or 64 Bit (match your source application)
+Always On: On (keeps app warm)
+ARR affinity: On (for session state)
+
+Phase 6: Test Migrated Application
+Step 6.1: Initial Application Test
+
+Access Migrated Application
+Open new browser tab
+Navigate to: https://techcorp-web-app-prod.azurewebsites.net
+Expected: TechCorp application homepage loads
+
+Test Application Functionality
+Test navigation between all pages:
+Dashboard (Default.aspx) shows live data counts
+Employees page displays employee table with data
+Products page displays products table with data
+Orders page displays orders table with data
+Verify all data displays correctly from Azure SQL Database
+Test navigation links work in both directions
+Verify database connection status shows green checkmark
+
+Step 6.2: Troubleshoot Common Issues
+Issue: Application Not Loading
+
+Check App Service Logs
+App Service → "App Service logs"
+Application logging: File System
+Level: Information
+Click "Save"
+View Live Logs
+App Service → "Log stream"
+Watch for error messages in real-time
+Check Event Log
+App Service → "Console" (under Development Tools)
+Navigate to: LogFiles\eventlog.xml
+Look for recent errors
+
+Issue: Database Connection Errors
+
+Verify Connection String
+App Service → "Configuration" → "Connection strings"
+Test connection string format
+Verify Azure SQL firewall allows App Service IPs
+
+Add App Service IPs to SQL Firewall
+Azure Portal → SQL Server → "Networking"
+Allow Azure services: Should be "Yes"
+If still failing, add specific App Service outbound IPs
+
+Issue: Missing Files or Features
+Manual File Upload via Kudu
+App Service → "Advanced Tools" → "Go"
+Navigate to /site/wwwroot/
+Upload any missing files manually
+Check File Permissions
+In Kudu console, verify file structure matches source
+Check for case-sensitive file name issues
+
+Phase 7: Performance and Security Configuration
+Step 7.1: Enable Application Insights
+
+Create Application Insights
+App Service → "Application Insights"
+Click "Turn on Application Insights"
+Resource: Create new
+Name: techcorp-app-insights
+Location: Same as App Service
+Click "Apply"
+
+Configure Monitoring
+Profiler: On
+Snapshot debugger: On (for .NET applications)
+SQL Commands: On (monitor database calls)
+
+Step 7.2: Configure Custom Domain (Optional)
+
+Purchase Domain or Use Existing
+App Service → "Custom domains"
+Click "Add custom domain"
+Enter your domain name
+Follow verification steps
+
+SSL Certificate
+App Service → "TLS/SSL settings"
+Private Key Certificates: Upload or create
+TLS/SSL bindings: Add binding for custom domain
+
+Step 7.3: Security Hardening
+Authentication Settings
+App Service → "Authentication" (if needed)
+Configure authentication provider if required
+
+Network Security
+App Service → "Networking"
+Access restrictions: Configure if needed
+Private endpoints: Consider for production
+
+Phase 8: Validation and Cutover Planning
+Step 8.1: Comprehensive Testing
+
+Functionality Testing
+Test all application features
+Verify data accuracy from Azure SQL Database
+Test user workflows end-to-end
+Performance testing under load
+
+
+Create Test Checklist
+Dashboard (Default.aspx) loads correctly
+Live data counts display from Azure SQL Database
+Employees page loads and shows employee data
+Products page loads and shows product data
+Orders page loads and shows order data
+Navigation links work between all pages
+Back to Dashboard links work from all pages
+Database connection status shows green checkmark
+No 404 errors on any page
+Performance is acceptable
+Mobile responsiveness maintained
+
+Step 8.2: Backup and Rollback Plan
+Document Current Configuration
+Export App Service configuration
+Document all settings and connection strings
+Keep source server available for rollback
+Create Deployment Slots
+App Service → "Deployment slots"
+Click "Add slot"
+Name: staging
+Clone settings from: Production
+Use for testing updates before production
+
+Step 8.3: DNS Cutover Planning
+Current State Documentation
+Document current DNS settings
+Note current application URL
+Plan maintenance window
+
+Cutover Steps
+Update DNS to point to Azure App Service
+Monitor application performance
+Verify all functionality post-cutover
+
+Phase 9: Optimization and Monitoring
+Step 9.1: Performance Optimization
+Enable Caching
+App Service → "Configuration" → "Application settings"
+Add: WEBSITE_DYNAMIC_CACHE = 1
+Add: WEBSITE_LOCAL_CACHE_OPTION = Always
+
+Configure Connection Pooling
+Add to connection string: ;Pooling=true;Max Pool Size=100;
+Monitor Resource Usage
+App Service → "Metrics"
+Watch CPU percentage, memory usage
+Scale up plan if needed
+
+Step 9.2: Set Up Monitoring and Alerts
+
+Create Performance Alerts
+App Service → "Alerts"
+New alert rule:
+Signal: CPU percentage
+Condition: Greater than 80%
+Action: Email notification
+Application Insights Dashboards
+Create custom dashboard for application metrics
+Monitor response times, error rates
+Set up availability tests
+
+
+Success Criteria for Part 3
+Migration Checklist:
+ App Service Migration Assistant successfully installed
+ Source application assessed with acceptable compatibility
+ App Service Plan created (S1 Standard)
+ Application successfully migrated to Azure App Service
+ Connection strings properly configured for Azure SQL Database
+ Application loads at https://techcorp-web-app-prod.azurewebsites.net
+ All application functionality working correctly
+ Database connectivity confirmed with Azure SQL Database
+ Application Insights enabled and monitoring
+ Performance testing shows acceptable response times
+ Security settings configured appropriately
+ Backup and rollback plan documented
+
+Key Metrics:
+
+Migration time: [Record actual time]
+Application uptime: Target 99.9%
+Response time: Within 2 seconds for main pages
+Error rate: Less than 1%
+
+Configuration Verification:
+
+.NET Framework 4.8 runtime
+Always On enabled
+Connection string pointing to Azure SQL Database
+Application Insights monitoring active
+Logs configured for troubleshooting
+
+Troubleshooting Guide
+Migration Assistant Issues
+Problem: Migration Assistant won't start
+Solution:
+Run as administrator
+Check Windows version compatibility
+Disable antivirus temporarily
+
+Problem: Azure authentication fails
+Solution:
+Use browser authentication instead of credentials
+Clear browser cache and try again
+Verify MFA is working in separate browser tab
+
+App Service Issues
+Problem: Application shows "This site can't be reached"
+Solution:
+Check App Service is running (Azure Portal)
+Verify domain name spelling
+Check DNS propagation if using custom domain
+
+Problem: Database connection errors
+Solution:
+Verify connection string format
+Check Azure SQL firewall allows Azure services
+Test connection string with SSMS first
+
+Problem: Missing application files
+Solution:
+Use Kudu console to manually upload files
+Check source and target file structures match
+Verify no file name case sensitivity issues
+
+Performance Issues
+Problem: Application loads slowly
+Solution:
+Enable Always On
+Scale up App Service Plan
+Optimize database queries
+Enable local caching
+
+Problem: Intermittent errors
+Solution:
+Check Application Insights for patterns
+Review App Service logs
+Monitor resource usage metrics
+Consider scaling out to multiple instances
