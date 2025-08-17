@@ -1,0 +1,1123 @@
+PART 1: Setting Up Azure Migrate Project
+Step 1: Navigate to Azure Migrate
+
+Open Azure Portal
+Go to https://portal.azure.com
+Sign in with your Azure account
+Wait for the portal dashboard to fully load
+
+Access Azure Migrate Service
+In the top search bar, type: Azure Migrate
+Click on "Azure Migrate" from the dropdown results
+You should see the Azure Migrate overview page with a blue header
+
+Create New Migration Project
+Look for the "Create project" button (blue button, top-left area)
+Click "Create project"
+A new blade will slide out from the right side
+
+Step 2: Configure Migration Project Details
+
+Project Basics Configuration
+Subscription: Select your Azure subscription from dropdown
+Resource group: Select existing or click "Create new"
+If creating new: Name it rg-techcorp-migration
+Click "OK"
+Migrate project name: Enter TechCorp-Migration-Project
+Geography: Select "United States" (or your preferred region)
+
+Review and Create
+Click "Create" button at the bottom
+Wait for deployment notification (green checkmark in top-right)
+Should take 1-2 minutes to complete
+
+Navigate to Created Project
+Click "Go to resource" from the notification
+Or search for TechCorp-Migration-Project in the search bar
+You should see the Azure Migrate project dashboard
+
+PART 2: Creating Mock Legacy Environment
+Step 3: Set Up Legacy Environment Simulation
+Since we're simulating TechCorp's environment, we'll create VMs to represent their legacy systems.
+
+Navigate to Virtual Machines
+From Azure Portal home, click "Virtual machines"
+Or search "Virtual machines" in the top search bar
+Click "+ Create" → "Azure virtual machine"
+
+Create Legacy Web Server VM
+Basics Tab:
+Subscription: Your subscription
+Resource group: rg-techcorp-migration
+Virtual machine name: techcorp-webserver-legacy
+Region: Same as your migrate project
+Availability options: No infrastructure redundancy required
+Security type: Standard
+Image: Click "See all images"
+
+Search for: Windows Server 2016 Datacenter
+Click "Select"
+
+VM architecture: x64
+Size: Click "See all sizes"
+Select "Standard_B2s (2 vcpus, 4 GiB memory)"
+Click "Select"
+
+Administrator Account:
+Username: techcorpadmin
+Password: TechCorp2024!@#
+Confirm password: TechCorp2024!@#
+
+Inbound Port Rules:
+Public inbound ports: Allow selected ports
+Select inbound ports: HTTP (80), HTTPS (443), RDP (3389)
+
+Configure Disks Tab
+Click "Next: Disks >"
+OS disk type: Standard SSD
+Delete with VM: Checked
+Enable Ultra Disk compatibility: Unchecked
+Click "Next: Networking >"
+
+Configure Networking Tab
+Virtual network: Select existing or create new
+
+If creating: Name it vnet-techcorp-legacy
+Subnet: default (10.0.0.0/24)
+Public IP: (new) techcorp-webserver-legacy-ip
+NIC network security group: Basic
+Public inbound ports: Allow selected ports
+Select inbound ports: HTTP, HTTPS, RDP
+Click "Next: Management >"
+
+Management Tab
+Enable auto-shutdown: Off
+Enable backup: Off (for now)
+Enable hotpatch: Unchecked
+Patch orchestration options: Manual updates
+Click "Next: Monitoring >"
+
+Monitoring Tab
+Boot diagnostics: Enable with managed storage account
+Enable OS guest diagnostics: Off
+Click "Next: Advanced >"
+
+Advanced Tab
+Extensions: None
+Cloud init: None
+Click "Next: Tags >"
+
+Tags Tab
+Name: Environment, Value: Legacy
+Name: Purpose, Value: Migration-Assessment
+Click "Next: Review + create >"
+
+Review and Create
+Review all settings
+Click "Create"
+Wait for deployment (5-10 minutes)
+
+Install and Configure IIS and Sample Web Application
+RDP to the web server VM:
+Go to Azure Portal → Virtual machines → techcorp-webserver-legacy
+Click "Connect" → "RDP"
+Download RDP file and connect using techcorpadmin / TechCorp2024!@#
+
+Install IIS and ASP.NET:
+Open PowerShell as Administrator
+Run:
+powershell# Install IIS with ASP.NET support
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole, IIS-WebServer, IIS-CommonHttpFeatures, IIS-HttpErrors, IIS-HttpLogging, IIS-RequestMonitor, IIS-StaticContent, IIS-Security, IIS-RequestFiltering, IIS-Performance, IIS-WebServerManagementTools, IIS-ManagementConsole, IIS-IIS6ManagementCompatibility, IIS-Metabase, IIS-ASPNET45, IIS-NetFxExtensibility45, IIS-ISAPIExtensions, IIS-ISAPIFilter, IIS-NetFxExtensibility, IIS-ASPNET
+Wait for installation to complete (5-10 minutes)
+If installation fails or ASP.NET not working:
+Download .NET Framework 4.8: https://dotnet.microsoft.com/download/dotnet-framework/net48
+Install .NET Framework 4.8 before enabling IIS features
+Retry the PowerShell command above
+
+Restart the VM when installation completes
+
+Create TechCorp Manufacturing Web Application:
+Create application directory:
+powershellNew-Item -Path "C:\inetpub\wwwroot\techcorp" -ItemType Directory -Force
+Create Default.aspx page:
+powershell$aspxContent = @'<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TechCorp Manufacturing - Legacy System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }
+        .container { background: white; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .nav { background: #34495e; padding: 10px; }
+        .nav a { color: white; text-decoration: none; margin: 0 15px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TechCorp Manufacturing</h1>
+        <p>Legacy Enterprise Resource Planning System</p>
+    </div>
+<div class="nav">
+    <a href="Default.aspx">Dashboard</a>
+    <a href="Products.aspx">Products</a>
+    <a href="Employees.aspx">Employees</a>
+    <a href="Orders.aspx">Orders</a>
+    <a href="Reports.aspx">Reports</a>
+</div>
+
+<div class="container">
+    <h2>System Dashboard</h2>
+    <p>Welcome to TechCorp Manufacturing legacy ERP system built on ASP.NET Framework 4.8</p>
+    
+    <div style="display: flex; gap: 20px;">
+        <div style="flex: 1; background: #e8f5e8; padding: 15px; border-radius: 5px;">
+            <h3>System Information</h3>
+            <p><strong>Framework:</strong> .NET Framework 4.8</p>
+            <p><strong>Server:</strong> Windows Server 2016</p>
+            <p><strong>Database:</strong> SQL Server 2019</p>
+            <p><strong>Last Updated:</strong> <%= DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") %></p>
+        </div>
+        
+        <div style="flex: 1; background: #e8f0ff; padding: 15px; border-radius: 5px;">
+            <h3>Quick Stats</h3>
+            <p><strong>Total Employees:</strong> 4</p>
+            <p><strong>Active Products:</strong> 4</p>
+            <p><strong>Pending Orders:</strong> 2</p>
+            <p><strong>System Uptime:</strong> 99.5%</p>
+        </div>
+    </div>
+    
+    <h3>Recent Activity</h3>
+    <table>
+        <tr><th>Time</th><th>Activity</th><th>User</th></tr>
+        <tr><td>10:30 AM</td><td>New order processed</td><td>sales@techcorp.com</td></tr>
+        <tr><td>09:45 AM</td><td>Product inventory updated</td><td>admin@techcorp.com</td></tr>
+        <tr><td>09:15 AM</td><td>Employee record modified</td><td>hr@techcorp.com</td></tr>
+    </table>
+</div>
+
+<div class="container">
+    <h3>Legacy System Features</h3>
+    <ul>
+        <li>ASP.NET Web Forms architecture</li>
+        <li>SQL Server stored procedures</li>
+        <li>Custom session management</li>
+        <li>File-based configuration</li>
+        <li>Windows Authentication integration</li>
+        <li>Crystal Reports integration</li>
+    </ul>
+</div>
+</body>
+</html>
+'@
+Set-Content -Path "C:\inetpub\wwwroot\techcorp\Default.aspx" -Value $aspxContent
+```
+  - **Create web.config file:**
+  ```powershell
+  $webConfigContent = @'
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <connectionStrings>
+    <add name="TechCorpDB" connectionString="Server=localhost;Database=TechCorpDB;Integrated Security=true;" providerName="System.Data.SqlClient" />
+  </connectionStrings>
+  <appSettings>
+    <add key="CompanyName" value="TechCorp Manufacturing" />
+    <add key="Environment" value="Production" />
+    <add key="LegacyMode" value="true" />
+  </appSettings>
+<system.web>
+<compilation targetFramework="4.8" />
+<httpRuntime targetFramework="4.8" maxRequestLength="4096" executionTimeout="110" />
+<authentication mode="Windows" />
+<authorization>
+<allow users="*" />
+</authorization>
+<sessionState mode="InProc" timeout="30" />
+<customErrors mode="Off" />
+</system.web>
+<system.webServer>
+<defaultDocument>
+<files>
+<add value="Default.aspx" />
+</files>
+</defaultDocument>
+</system.webServer>
+</configuration>
+'@
+
+Set-Content -Path "C:\inetpub\wwwroot\techcorp\web.config" -Value $webConfigContent
+```
+- **Configure IIS Application:**
+  - **Open IIS Manager** (type `inetmgr` in Start menu)
+  - **Expand "Default Web Site"**
+  - **Right-click "Default Web Site"** → **"Add Application"**
+  - **Alias:** `techcorp`
+  - **Physical path:** `C:\inetpub\wwwroot\techcorp`
+  - **Click "OK"**
+
+- **Test Web Application:**
+  - **Open browser in the VM**
+  - **Navigate to:** `http://localhost/techcorp`
+  - **If you get 403.14 error:** Navigate directly to `http://localhost/techcorp/Default.aspx`
+  - **If you get 404.3 error:** ASP.NET is not installed - follow steps below
+  - **Note the external URL:** `http://[VM-Public-IP]/techcorp` for assessment
+
+- **Troubleshooting: ASP.NET Not Installed (404.3 Error)**
+  
+  **If you get "HTTP Error 404.3 - Not Found" when accessing Default.aspx:**
+    **Option 1: Enable ASP.NET via Windows Features**
+  - **Press Windows + R** → Type `appwiz.cpl` → Enter
+  - **Click "Turn Windows features on or off"** (left side)
+  - **Expand "Internet Information Services"**
+  - **Expand "World Wide Web Services"**  
+  - **Expand "Application Development Features"**
+  - **Check "ASP.NET 4.8"** (or highest version available)
+  - **Click OK** and wait for installation
+  
+  **Option 2: PowerShell Command (Faster)**
+  - **Open PowerShell as Administrator**
+  - **Run:** `Enable-WindowsOptionalFeature -Online -FeatureName IIS-ASPNET45`
+  
+  **After installation:**
+  - **Restart IIS:** Open cmd as admin, run `iisreset`
+  - **Test again:** `http://localhost/techcorp/Default.aspx`
+  - **Should now work correctly**
+
+
+Step 4: Create Legacy Database Server VM
+Repeat the VM creation process with these differences:
+
+Start VM Creation Process
+Go back to Virtual machines
+Click "+ Create" → "Azure virtual machine"
+
+Different Settings for DB Server:
+Virtual machine name: techcorp-dbserver-legacy
+Image: Windows Server 2016 Datacenter
+Size: Standard_B2ms (2 vcpus, 8 GiB memory) - more RAM for database
+Select inbound ports: RDP (3389) only
+Tags:
+
+Environment: Legacy
+Purpose: Database-Server
+
+Create the VM
+Follow same process as web server
+Wait for deployment completion
+
+Install and Configure SQL Server on Database VM
+RDP to the database VM:
+Go to Azure Portal → Virtual machines → techcorp-dbserver-legacy
+Click "Connect" → "RDP"
+Download RDP file and connect using techcorpadmin / TechCorp2024!@#
+Download SQL Server 2019 Developer (Free):
+Open browser in the VM
+Go to: https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+Click "Download now" under "Developer" edition
+Save the installer to Downloads folder
+
+Install SQL Server:
+Run the downloaded installer
+Select "Custom" installation
+Accept license terms
+Choose "New SQL Server stand-alone installation"
+Feature Selection: Check "Database Engine Services" and "Management Tools - Complete" (includes SSMS)
+Instance Configuration: Use "Default instance"
+Server Configuration: Use default service accounts
+Database Engine Configuration:
+
+Authentication Mode: Select "Mixed Mode"
+SA Password: Enter TechCorp2024!@#
+Add Current User: Click "Add Current User"
+
+Complete installation (takes 15-20 minutes)
+
+If SQL Server Management Studio not installed:
+Download SSMS separately: https://docs.microsoft.com/en-us/sql/ssms/download-sql-server-management-studio-ssms
+Install SSMS for easier database management
+
+Create Sample TechCorp Database:
+Open SQL Server Management Studio (installed with SQL Server)
+Connect to localhost using Windows Authentication
+Click "New Query" and run this script:
+
+sql-- Create TechCorp Manufacturing Database
+CREATE DATABASE TechCorpDB;
+GO
+USE TechCorpDB;
+GO
+
+-- Create Employees Table
+CREATE TABLE Employees (
+    EmployeeID int PRIMARY KEY IDENTITY(1,1),
+    FirstName varchar(50),
+    LastName varchar(50),
+    Department varchar(50),
+    HireDate datetime,
+    Salary decimal(10,2)
+);
+
+-- Create Products Table
+CREATE TABLE Products (
+    ProductID int PRIMARY KEY IDENTITY(1,1),
+    ProductName varchar(100),
+    Category varchar(50),
+    Price decimal(10,2),
+    StockQuantity int
+);
+
+-- Create Orders Table
+CREATE TABLE Orders (
+    OrderID int PRIMARY KEY IDENTITY(1,1),
+    CustomerName varchar(100),
+    OrderDate datetime,
+    TotalAmount decimal(10,2),
+    Status varchar(20)
+);
+
+-- Insert Sample Data
+INSERT INTO Employees VALUES 
+    ('John', 'Doe', 'IT', '2020-01-15', 75000.00),
+    ('Jane', 'Smith', 'HR', '2019-03-20', 65000.00),
+    ('Mike', 'Johnson', 'Manufacturing', '2021-06-10', 55000.00),
+    ('Sarah', 'Wilson', 'Sales', '2020-09-05', 60000.00);
+
+INSERT INTO Products VALUES
+    ('Industrial Widget A', 'Widgets', 99.99, 150),
+    ('Premium Widget B', 'Widgets', 149.99, 75),
+    ('Standard Bolt Set', 'Hardware', 25.50, 300),
+    ('Heavy Duty Wrench', 'Tools', 45.00, 100);
+
+INSERT INTO Orders VALUES
+    ('ABC Manufacturing', '2024-07-01', 1250.00, 'Completed'),
+    ('XYZ Industries', '2024-07-15', 750.50, 'Processing'),
+    ('Tech Solutions Inc', '2024-07-20', 2100.00, 'Shipped');
+
+-- Create some stored procedures (common in legacy systems)
+CREATE PROCEDURE GetEmployeesByDepartment
+    @Department varchar(50)
+AS
+BEGIN
+    SELECT * FROM Employees WHERE Department = @Department;
+END
+GO
+
+CREATE PROCEDURE GetMonthlyOrders
+    @Year int,
+    @Month int
+AS
+BEGIN
+    SELECT * FROM Orders 
+    WHERE YEAR(OrderDate) = @Year AND MONTH(OrderDate) = @Month;
+END
+GO
+
+
+Execute the script (F5 or click Execute)
+Verify database creation: You should see TechCorpDB in Object Explorer
+
+Configure SQL Server for Remote Access:
+sql-- Enable SQL Server Authentication
+EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE', 
+    N'Software\Microsoft\MSSQLServer\MSSQLServer', N'LoginMode', REG_DWORD, 2;
+
+-- Enable TCP/IP protocol
+EXEC sp_configure 'remote access', 1;
+RECONFIGURE;
+
+Configure Windows Firewall:
+Open PowerShell as Administrator
+Run:
+powershellnetsh advfirewall firewall add rule name="SQL Server" dir=in localport=1433 protocol=TCP action=allow
+netsh advfirewall firewall add rule name="SQL Browser" dir=in localport=1434 protocol=UDP action=allow
+
+Restart SQL Server Services:
+Open Services.msc
+Restart "SQL Server (MSSQLSERVER)" service
+Start "SQL Server Browser" service and set to Automatic
+
+
+PART 3: Setting Up Azure Migrate Tools
+Step 5: Review Assessment Tools
+
+Return to Azure Migrate Project
+Search for TechCorp-Migration-Project
+Click on your migration project
+You should see the project overview dashboard
+
+Verify Assessment Tools Available
+Look for "Assessment tools" section at the top
+You should see "Azure Migrate: Discovery and assessment" already available
+Notice the "Quick start" section with 4 steps:
+1: Discover
+2: Build business case
+3: Analyze dependencies
+4: Assess
+
+Understanding the Dashboard
+Assessment tools section: Shows discovery and assessment capabilities
+Migration tools section: Shows actual migration execution tools
+Quick start workflow: Guides you through the migration process
+The tools are pre-configured and ready to use
+
+Step 6: Start Discovery Process
+
+Initiate Server Discovery
+In the "Quick start" section
+Click the blue "Discover" button
+This opens the discovery configuration wizard
+
+Discovery Configuration Options
+Are your machines virtualized? Select "No (Physical servers/other cloud/other virtualization platforms)"
+Name your appliance: TC-Migrate
+Click "Generate key"
+
+Critical Platform Selection: This choice determines what discovery options you'll have later. Since we're using Azure VMs to simulate physical servers, select "No (Physical servers/other cloud)" to enable Physical Server discovery.
+Download Appliance Setup Files
+Copy the project key (save it in notepad - you'll need this)
+You'll see "2: Download Azure Migrate appliance" section
+File type: .zip file. 500MB (contains PowerShell installation script)
+Click "Download" button
+Save the ZIP file to your local machine
+
+Set Up Appliance Using PowerShell Script
+System Requirements Check:
+Operating System: Windows Server 2019 or above
+NOT SUPPORTED: Windows 10, Windows 11, Windows Server Core
+Hyper-V Role: Must be installed and enabled
+Administrator Rights: Required
+
+Step 4a: Extract the ZIP File
+Locate the downloaded ZIP file (usually in Downloads folder)
+Right-click on the ZIP file → "Extract All..."
+Choose extraction location: Create folder C:\AzureMigrateAppliance
+Extract all files to this folder
+
+Step 4b: Run PowerShell as Administrator
+Press Windows Key + X
+Select "Windows PowerShell (Admin)" or "Terminal (Admin)"
+Click "Yes" when prompted by User Account Control
+PowerShell window will open with Administrator privileges
+
+Step 4c: Navigate to Appliance Folder
+Type: cd C:\AzureMigrateAppliance
+Press Enter
+Verify files: Type dir and press Enter (you should see PowerShell script files)
+
+Step 4d: Set Execution Policy
+Type: Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
+Press Enter
+Type "Y" when prompted and press Enter
+
+Step 4e: Run the Installation Script
+Look for the main script file (usually named AzureMigrateInstaller.ps1)
+Type: .\AzureMigrateInstaller.ps1
+Press Enter
+Type "R" when security warning appears
+Follow any prompts that appear during installation
+
+Troubleshooting - OS Version Error:
+Issue: "OS should be Windows Server 2019 and above. Aborting... Windows Server Core and Windows client SKUs are not supported."
+Root Cause: Azure Migrate installer script only works on Windows Server 2019+ with Hyper-V role.
+Solutions:
+Option 1: Use Windows Server Machine
+Run the script on Windows Server 2019/2022 machine with Hyper-V enabled
+Transfer the ZIP file to a Windows Server machine
+Execute the script from the Windows Server
+
+Option 2: Manual VHD Deployment (Alternative)
+Request VHD file from Microsoft support or Azure documentation
+Manually create Hyper-V VM using Hyper-V Manager
+Import VHD as new virtual machine
+Configure VM settings manually
+
+Option 3: Azure VM Deployment (Back to Cloud)
+Deploy appliance as Azure VM instead of on-premises
+Use ARM template deployment option from Azure Portal
+Configure from cloud and connect to your local environment via VPN
+
+Option 4: Use Different Migration Tool
+Consider Azure Arc for server management and assessment
+Use Azure Site Recovery for migration assessment
+Manual assessment using Azure pricing calculator
+
+Access Appliance Web Interface
+Wait for the script to complete (this may take 15-30 minutes)
+Note the appliance IP address shown at the end of the script execution
+Open web browser and navigate to https://[appliance-ip]:44368
+
+
+PART 4: Configuring the Migration Appliance
+Step 7: Access and Configure Appliance
+Connect to Appliance VM
+Go to Virtual machines
+Click on tc-migrate
+Note the Public IP address
+Click "Connect" → "RDP"
+Download RDP file and connect
+Login with credentials provided during deployment
+
+Launch Appliance Configuration
+On the appliance VM desktop
+Look for "Azure Migrate Appliance Configuration Manager"
+Double-click to launch
+If not found, open browser and go to: https://localhost:44368
+
+Complete Prerequisites
+Accept license terms: Check the box
+Check prerequisites: Click "Check prerequisites"
+Wait for all checks to pass (green checkmarks)
+Click "Continue"
+
+Register Appliance
+Paste the project key: Use the key you copied earlier
+Click "Verify"
+Wait for verification success
+Login to Azure: Click "Login"
+Use your Azure credentials
+Select subscription and migrate project
+Click "Register"
+
+Troubleshooting - Authentication Issue After Key Registration:
+Issue: After entering the appliance key, the web interface may prompt for Windows Authentication (username/password dialog) or become unresponsive.
+Solution:
+Access the appliance VM directly through Hyper-V console (not web browser)
+Open Command Prompt as Administrator
+Restart IIS service by running: iisreset
+Wait 2-3 minutes for services to fully restart
+Refresh the web browser and try accessing https://localhost:44368 again
+No username/password should be required after the IIS restart
+
+Why this happens: Appliance updates can cause IIS authentication modules to require restart for proper web interface access.
+Step 8: Configure Discovery Settings
+Add Discovery Source Details
+In the Appliance Configuration Manager, look for "Step 2: Manage credentials and discovery sources"
+Click "Add credentials" button (blue button)
+In the "Add credentials" form:
+Credentials type: Select "Windows" from dropdown
+Friendly name: Enter TechCorp-ServerCreds
+Username: Enter techcorpadmin
+Password: Enter TechCorp2024!@#
+Click "Save credentials" button
+
+
+Add Physical Servers for Discovery
+In the same section, click "Add discovery source" button
+Discovery source: You should now see "Physical Server" in the dropdown
+Click "Add single item" link
+Now Available: Since you selected "Physical servers" during initial setup, the dropdown will show Physical Server options instead of Hyper-V.
+Configure First Server (Web Server)
+
+Server details form will appear:
+IP Address/FQDN: Go to Azure Portal → Virtual machines → techcorp-webserver-legacy → copy the Private IP address → paste it here
+Friendly name: Enter TechCorp-WebServer
+Credentials: Select TechCorp-ServerCreds from dropdown
+
+Click "Save" button
+
+Configure Second Server (Database Server)
+Click "Add single item" again
+Server details form:
+IP Address/FQDN: Go to Azure Portal → Virtual machines → techcorp-dbserver-legacy → copy the Private IP address → paste it here
+Friendly name: Enter TechCorp-DBServer
+Credentials: Select TechCorp-ServerCreds from dropdown
+
+Click "Save" button
+
+Validate and Start Discovery
+Review the "Added servers" list - you should see both servers listed
+Click "Start discovery" button (green button)
+You'll see a "Discovery initiated" message
+Discovery status will show "Discovery in progress"
+Wait 15-20 minutes for initial discovery to complete
+
+Troubleshooting - Wrong Platform Selected:
+Issue: You only see "Hyper-V Host/Cluster" in discovery source dropdown, no Physical Server option.
+Root Cause: You selected "Yes, with Hyper-V" during initial appliance setup, which locks the appliance to Hyper-V discovery only.
+Solution - Reconfigure Appliance:
+Go back to Azure Portal → Your migration project
+Delete the current appliance registration:
+
+In project dashboard, go to "Discovered servers"
+Remove the current appliance registration
+Generate a new project key:
+Click "Discover" again
+Select "No (Physical servers/other cloud)" this time
+Generate new key
+
+Reconfigure appliance:
+In appliance configuration manager
+Enter the new key
+Re-register with correct platform type
+
+Physical Server options will now be available in discovery source dropdown
+Alternative: Deploy a new appliance VM with correct platform selection from the start.
+PART 5: Creating and Running Assessments
+Step 9: Create Server Assessment
+
+Navigate to Assessment Creation
+Return to Azure Portal (leave the appliance configuration running)
+Search for TechCorp-Migration-Project in the top search bar
+Click on your migration project
+In the "Assessment tools" section, find "Azure Migrate: Discovery and assessment"
+Click the "Assess" dropdown button
+Select "Azure VM" from the dropdown menu
+
+Configure Assessment Basics
+In the "Assess servers" blade that opens:
+Assessment name: Enter TechCorp-Azure-VM-Assessment
+Discovery source: Select your appliance TC-Migrate from dropdown
+Assessment type: Leave as "Azure VM" (pre-selected)
+Target location: Select your Azure region from dropdown (same as project region)
+Environment type: Select "Production" from dropdown
+Performance history: Select "1 day" from dropdown
+Percentile utilization: Select "95th percentile" from dropdown
+Comfort factor: Select "1.3x" from dropdown
+
+Configure Assessment Properties
+Click "View all" link next to "Assessment properties"
+In the "Assessment properties" panel:
+Target and pricing settings:
+Target location: Verify your region is selected
+Storage type: Select "Premium SSD" from dropdown
+Reserved instances: Select "No reserved instances" from dropdown
+Sizing criteria: Select "Performance-based" from dropdown
+VM series: Check boxes for "Dsv3-series" and "Dv3-series"
+Currency: Select "USD ($)" from dropdown
+Discount (%): Enter 0
+Azure Hybrid Benefit: Select "No" from dropdown
+Click "Save" button at bottom
+Select Servers for Assessment
+Back in the main assessment creation page
+Groups: Click "Create new" link
+Group name: Enter TechCorp-Production-Servers
+Add machines: You should see both discovered servers listed:
+Check box next to TechCorp-WebServer
+Check box next to TechCorp-DBServer
+Click "Create assessment" button at bottom
+Wait for "Assessment creation initiated" notification
+
+Step 10: Review Assessment Results
+
+Access Assessment Results
+Wait 10-15 minutes for assessment processing
+In your migration project, click "Assessments" tab
+Click on TechCorp-Azure-VM-Assessment link
+Assessment overview page will open
+
+
+Review Azure Readiness Summary
+Look at the "Azure readiness" pie chart:
+Ready for Azure: Note the count (should show green)
+Conditionally ready: Note any yellow warnings
+Not ready: Note any red blockers
+Readiness unknown: Note any gray unknowns
+Click "View details" link under the chart
+
+Analyze Cost Estimates
+In the "Cost details" section:
+Monthly compute cost: Note the estimated VM costs
+Monthly storage cost: Note the estimated storage costs
+Total monthly cost: Note the combined estimate
+Click "Cost breakdown" to see detailed pricing
+
+Individual Server Analysis
+Scroll down to "Assessed servers" table
+Click on TechCorp-WebServer server name
+Review:
+Azure VM readiness: Check status and any issues
+Recommended VM size: Note Azure VM SKU recommendation
+Monthly cost estimate: Note individual server cost
+Storage requirements: Note disk recommendations
+Click "Back" and repeat for TechCorp-DBServer
+
+PART 6: Database Assessment Setup
+Step 11: Database Assessment Using DMA
+
+Download and Install Data Migration Assistant
+On your local machine (where you can access both the Azure VM and install software)
+Go to: https://www.microsoft.com/en-us/download/details.aspx?id=53595
+Download Data Migration Assistant
+Install with default settings
+
+Launch DMA and Create Assessment Project
+Open Data Migration Assistant
+Click "+" (New) to create new project
+Project type: Select "Assessment"
+Project name: Enter TechCorp-Database-Assessment
+Assessment type: Select "Database Engine"
+Source server type: "SQL Server"
+Target server type: "Azure SQL Database"
+Click "Create"
+
+Configure Assessment Scope
+
+Check both assessment options:
+Check database compatibility
+Check feature parity
+Click "Next"
+
+Connect to TechCorp Database
+Server name: Enter the public IP of techcorp-dbserver-legacy
+Authentication type: Select "SQL Server Authentication"
+User name: sa
+Password: TechCorp2024!@#
+Encrypt connection: Uncheck (for lab environment)
+Trust server certificate: Check
+Click "Connect"
+
+Select TechCorpDB for Assessment
+You should see "TechCorpDB" in the available databases list
+Check the box next to "TechCorpDB"
+Click "Add"
+Click "Start Assessment"
+
+Review Assessment Results
+Wait for assessment to complete (2-3 minutes)
+Review results in different tabs:
+"SQL Server feature parity" - Features not available in Azure SQL
+"Compatibility issues" - Blocking issues for migration
+"New features" - Azure SQL enhancements available
+
+
+Export Assessment Results
+Click "Export assessment"
+Choose JSON format
+Save to desktop as TechCorp-DB-Assessment.json
+
+Upload to Azure Migrate (Optional)
+Return to Azure Portal → Databases section
+Click "Assess" in the Azure Migrate: Database Assessment tile
+Upload the exported JSON file
+View integrated results in Azure Migrate dashboard
+
+Troubleshooting - DMA Azure Authentication Issues:
+Issue: "AADSTS50074: Strong Authentication is required" when trying to upload assessment to Azure
+Root Cause: Multi-Factor Authentication (MFA) enabled on Azure account prevents DMA from authenticating properly
+Solution 1: Use Service Principal Authentication (Recommended)
+
+Create App Registration in Azure Portal:
+Azure Active Directory → App registrations → New registration
+Name: DMA-Assessment-App
+Account types: Single tenant
+Click Register
+
+Configure App Registration:
+Copy Application (client) ID and Directory (tenant) ID (save these)
+Certificates & secrets → New client secret
+Description: DMA Upload Secret
+Expires: 12 months
+Copy the secret value (save immediately - won't show again)
+
+Grant Required Permissions:
+API permissions → Add permission → Azure Service Management
+Delegated permissions → Check "user_impersonation"
+Add permissions
+Grant admin consent for [tenant] (click the button)
+
+Assign Role to Service Principal:
+Go to your migration project resource group (rg-techcorp-migration)
+Access control (IAM) → Add role assignment
+Role: Contributor
+Assign access to: User, group, or service principal
+Select: Search for DMA-Assessment-App and select it
+Save
+
+Use Service Principal in DMA:
+In DMA, when signing in to Azure
+Choose "Service Principal" authentication mode
+Tenant ID: Your Directory (tenant) ID
+Application ID: Your Application (client) ID
+Application Secret: Your client secret value
+Click Sign In
+
+Solution 2: Use Azure CLI Authentication
+Install Azure CLI on the Database Server VM:
+powershell# Download and install Azure CLI
+Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi
+Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
+
+Refresh PowerShell Environment:
+Close and reopen PowerShell as Administrator
+Test installation: az --version (should show version info)
+
+Login via Azure CLI with Device Code:
+powershellaz login --use-device-code
+Copy the device code shown in PowerShell
+Open browser → Go to https://microsoft.com/devicelogin
+Enter the device code
+Complete MFA authentication in browser
+PowerShell should show "Login successful"
+
+DMA Should Now Work:
+Return to DMA tool
+Try "Sign in to Azure" again
+DMA will detect the Azure CLI authentication token
+Upload should work without MFA errors
+
+Solution 3: Alternative - Export Only Approach
+Solution 3: Alternative - Export Only Approach
+If Service Principal setup is too complex:
+
+Skip Azure upload in DMA
+Export assessment as JSON and HTML files
+Keep local copies for documentation and analysis
+Local reports contain same information as Azure Portal integration
+Use exported data for migration planning
+
+Solution 4: Disable Enhanced Security (If Blocking Browser)
+If getting Internet Explorer security errors:
+powershell# Run as Administrator - Disable IE Enhanced Security
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A7-37EE-4b9f-8441-018A543C8E80}" -Name "IsInstalled" -Value 0
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{A509B1A8-37EE-4b9f-8441-018A543C8E80}" -Name "IsInstalled" -Value 0
+
+Restart Explorer
+Stop-Process -Name Explorer -Force
+Start-Process Explorer
+Why This Happens:
+MFA is modern security requirement for Azure accounts
+DMA is older tool with limited modern authentication support
+Service Principal bypasses MFA for application authentication
+Enterprise environments commonly face this challenge
+
+PART 7: Web App Assessment
+Step 12: Web Application Assessment Setup
+
+Download App Service Migration Assistant
+On your local machine, go to: https://appmigration.microsoft.com/
+Click "Download the tool"
+Download and install the App Service Migration Assistant
+Launch the tool after installation
+
+Start Web Application Assessment
+Open App Service Migration Assistant
+Click "Next" on the welcome screen
+Assessment type: Select "Assess a website"
+Click "Next"
+
+Configure Site Assessment
+Website URL: Enter http://[public-IP-of-webserver]/techcorp
+Replace [public-IP-of-webserver] with actual public IP of your web server VM
+Site name: Enter TechCorp Manufacturing
+Click "Next"
+
+Run Compatibility Assessment
+Tool will analyze the TechCorp web application
+Assessment covers:
+.NET Framework compatibility
+IIS configuration
+Web.config settings
+Database connections
+File system dependencies
+
+Wait for analysis to complete (3-5 minutes)
+
+Review Assessment Results
+Compatibility Status:
+Ready items: Features that work directly in App Service
+Warning items: Features that need minor changes
+Blocking items: Features not supported in App Service
+
+Common Assessment Results for TechCorp App:
+
+ASP.NET 4.8 framework - Supported
+Web.config structure - Compatible
+Windows Authentication - Needs Azure AD integration
+File system access - May need Azure Storage
+SQL Server connection - Needs connection string update
+
+Generate Migration Report
+
+Click "Generate Report"
+Report includes:
+Executive summary of readiness
+Detailed compatibility analysis
+Required code changes
+Recommended App Service tier
+Estimated migration effort
+
+Save report as TechCorp-WebApp-Assessment.html
+
+Step 13: Alternative Assessment Using Azure Portal
+
+Navigate to Web Apps Section
+In Azure Portal, go to your TechCorp-Migration-Project
+Click "Web apps" in the left navigation
+Click "Assess" in the Azure Migrate: Web app assessment section
+
+Configure Online Assessment
+Assessment name: TechCorp-WebApp-Online-Assessment
+Target platform: Azure App Service
+Source URL: http://[webserver-public-IP]/techcorp
+Authentication: None (for public assessment)
+Click "Start assessment"
+
+Review Online Assessment Results
+Wait for completion (5-10 minutes)
+Results show:
+Framework compatibility score
+Code complexity analysis
+Dependencies identified
+Migration recommendations
+
+Step 14: Prepare Web App for Migration
+Based on assessment results, prepare the application:
+
+Document Current Configuration
+Framework: ASP.NET 4.8
+Authentication: Windows Authentication
+Database: SQL Server with Integrated Security
+File dependencies: Local file system access
+IIS features: Default Document, Static Content
+Identify Required Changes
+Connection strings: Update for Azure SQL Database
+Authentication: Migrate to Azure AD
+File storage: Move to Azure Storage if needed
+Configuration: Externalize app settings
+
+Plan Migration Approach
+Phase 1: Lift-and-shift with minimal changes
+Phase 2: Modernize authentication
+Phase 3: Optimize for cloud-native features
+
+PART 8: Generating Migration Reports
+Step 15: Export Assessment Reports
+
+Export Server Assessment Report
+Return to your TechCorp-Azure-VM-Assessment results page
+In the assessment overview, look for the "Export assessment" button (top-right area)
+Click "Export assessment" button
+In the "Export assessment" dialog:
+
+Format: Select "Excel (.xlsx)" from dropdown
+Include: Check boxes for:
+Assessment details
+Server details
+Cost analysis
+Readiness analysis
+
+Click "Export" button
+Wait for "Export initiated" notification
+Check your browser downloads folder for TechCorp-Azure-VM-Assessment.xlsx
+Download and Review Migration Plan
+Open the downloaded Excel file TechCorp-Azure-VM-Assessment.xlsx
+Review the "Assessment Summary" worksheet:
+Note total servers assessed
+Note migration readiness breakdown
+Note cost estimates summary
+
+
+Switch to "Server Details" worksheet:
+Review individual server recommendations
+Note any migration blockers in "Issues" column
+Document required remediation steps
+
+Generate Cost Analysis Screenshots
+Return to your assessment results in Azure Portal
+Click "Cost details" tab
+Take screenshots of:
+Monthly cost breakdown chart
+Compute vs. storage cost comparison
+Cost by server comparison
+
+In "Cost breakdown" section:
+Click "Download detailed estimate" link
+Save the detailed cost CSV file
+
+Note key cost figures:
+Current estimated monthly cost: $____
+Projected Azure monthly cost: $____
+Potential monthly savings: $____
+
+Create Executive Summary Document
+
+Open a new Word document
+Create sections for:
+Executive Summary: Key findings and recommendations
+Current State: Inventory of servers and current costs
+Azure Readiness: Migration readiness status per server
+Cost Analysis: Current vs. Azure cost comparison
+Next Steps: Remediation items and migration timeline
+Appendix: Attach exported Excel reports and screenshots
+
+Part 1 Completion Checklist
+
+Azure Migrate project created and configured
+Mock legacy environment VMs deployed
+SQL Server 2019 installed on database VM
+TechCorpDB sample database created with tables and data
+IIS and ASP.NET installed on web server VM
+TechCorp Manufacturing web application deployed
+Azure Migrate appliance set up and running
+Server discovery completed successfully
+Azure VM assessment created and analyzed
+Database assessment completed using DMA tool
+Web application assessment completed
+Migration reports exported and reviewed
+
+
+Expected Results Summary
+By the end of  Part1, you should have:
+Complete Legacy Environment:
+Web Server: Windows Server 2016 with IIS, ASP.NET 4.8, and TechCorp web app
+Database Server: Windows Server 2016 with SQL Server 2019 and TechCorpDB
+Network: Properly configured NSGs and firewall rules
+Applications: Fully functional legacy applications ready for migration
+
+Server Assessment Results:
+2 servers discovered (web server, database server)
+Migration readiness status for each server
+Recommended Azure VM sizes
+Monthly cost estimates
+Identified migration blockers or warnings
+
+Database Assessment Results:
+TechCorpDB compatibility analysis
+SQL Server features that need modification for Azure SQL
+Stored procedures and schema compatibility
+Migration recommendations and cost estimates
+
+Web Application Assessment Results:
+ASP.NET 4.8 framework compatibility
+IIS configuration analysis
+Database connection requirements
+App Service tier recommendations
+Required code modifications
+
+Assessment Reports:
+Detailed Excel export with server analysis
+DMA database assessment report
+Web app migration assessment report
+Cost comparison (current vs. Azure)
+Recommended migration approach
+
+Next Steps Preview:
+part 2 will focus on database migration using DMS Portal
+Part 3 will handle application migration using App Service tools
+All discovered issues will be addressed in subsequent days
+
+Common Issues and Troubleshooting
+Issue: Appliance can't discover servers
+Solution: Check network connectivity and credentials
+Verify RDP access to target servers
+Ensure correct IP addresses are used
+
+Issue: Assessment shows "Not Ready"
+Solution: Review specific readiness issues
+Check OS compatibility
+Verify hardware requirements met
+
+Issue: Discovery takes too long
+Solution: Check appliance performance
+Ensure adequate resources allocated
+Verify network latency is acceptable
+
+Issue: Cost estimates seem high
+Solution: Review sizing recommendations
+Consider different VM series
+Adjust comfort factor in assessment properties
