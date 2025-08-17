@@ -1,0 +1,541 @@
+Phase 1: Azure Storage Account Setup
+Step 1.1: Create Azure Storage Account
+Navigate to Azure Portal Storage
+Go to https://portal.azure.com
+Click "Create a resource" (+ icon)
+Search for "Storage account"
+Click "Storage account"
+Click "Create"
+
+Configure Storage Account Basics
+Subscription: Your subscription
+Resource group: rg-techcorp-migration
+Storage account name: techcorpstorageprod (must be globally unique, lowercase)
+Region: Same as your other resources (e.g., East US)
+Performance: Standard (cost-effective for general use)
+Redundancy: Locally-redundant storage (LRS) (sufficient for migration testing)
+
+Configure Advanced Options
+Click "Next: Advanced"
+
+Security:
+Require secure transfer: Enabled
+Allow Blob public access: Enabled (for web content if needed)
+Minimum TLS version: Version 1.2
+Data Lake Storage Gen2: Disabled (not needed for this migration)
+Blob storage: Hot access tier
+
+Configure Networking
+Click "Next: Networking"
+Connectivity method: Public endpoint (all networks)
+Network routing: Microsoft network routing
+
+Create Storage Account
+Click "Next: Data protection" → Leave defaults
+Click "Next: Encryption" → Leave defaults
+Click "Review + create"
+Click "Create"
+Wait for deployment (2-3 minutes)
+
+Step 1.2: Create Storage Containers
+
+Navigate to Storage Account
+Go to "All resources"
+Click techcorpstorageprod
+
+Create Application Files Container
+Click "Containers" in left menu
+Click "+ Container"
+Name: app-files
+Public access level: Private (no anonymous access)
+Click "Create"
+
+Create Documents Container
+Click "+ Container"
+Name: documents
+Public access level: Blob (anonymous read access for blobs only)
+Click "Create"
+
+Create Backup Container
+Click "+ Container"
+Name: backups
+Public access level: Private (no anonymous access)
+Click "Create"
+
+Step 1.3: Configure Storage Access Keys
+
+Get Storage Connection String
+Storage Account → "Access keys" in left menu
+Key1 → Click "Show"
+Copy Connection string (save this for later)
+
+Configure App Service to Use Storage
+Go to App Services → techcorp-web-app-prod
+Click "Configuration" → "Application settings"
+Click "+ New application setting"
+Name: AzureStorageConnectionString
+Value: [Paste the connection string from Step 1]
+Click "OK"
+Click "Save" → "Continue"
+
+
+Phase 2: File Migration and Storage Integration
+Step 2.1: Migrate Existing Files to Azure Storage
+
+Assess Current File Storage
+RDP to your web server: techcorp-webserver-legacy
+Navigate to: C:\inetpub\wwwroot\techcorp\
+Look for folders like: uploads/, documents/, images/, files/
+Note any file upload functionality
+
+Upload Files via Azure Portal
+Azure Portal → Storage Account → "Containers" → "documents"
+Click "Upload"
+Select files from your web server (if any exist)
+Upload type: Block blob
+Click "Upload"
+
+Test Storage Connectivity
+Storage Account → "Storage browser" (preview)
+Navigate through your containers
+Verify files uploaded successfully
+
+Step 2.2: Create File Upload Test Page
+Create a test page to verify storage integration:
+RDP to Web Server (or use App Service Kudu console)
+Create file-upload.aspx
+Location: C:\inetpub\wwwroot\techcorp\file-upload.aspx
+
+Content:
+asp<%@ Page Language="C#" AutoEventWireup="true" %>
+<%@ Import Namespace="Azure.Storage.Blobs" %>
+<%@ Import Namespace="System.Configuration" %>
+<!DOCTYPE html>
+<html>
+<head><title>File Upload Test - TechCorp</title></head>
+<body>
+    <h1>Azure Storage File Upload Test</h1>
+    <a href="Default.aspx">← Back to Dashboard</a>
+    
+    <%
+    if (Request.HttpMethod == "POST" && Request.Files.Count > 0)
+    {
+        try 
+        {
+            var file = Request.Files[0];
+            if (file.ContentLength > 0)
+            {
+                string connectionString = ConfigurationManager.AppSettings["AzureStorageConnectionString"];
+                var blobServiceClient = new BlobServiceClient(connectionString);
+                var containerClient = blobServiceClient.GetBlobContainerClient("documents");
+                
+                var blobClient = containerClient.GetBlobClient(file.FileName);
+                blobClient.Upload(file.InputStream, true);
+                
+                Response.Write("<p style='color: green;'>✅ File uploaded successfully to Azure Storage!</p>");
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("<p style='color: red;'>❌ Upload error: " + ex.Message + "</p>");
+        }
+    }
+    %>
+    
+    <form method="post" enctype="multipart/form-data">
+        <p>Select file to upload to Azure Storage:</p>
+        <input type="file" name="fileUpload" />
+        <input type="submit" value="Upload to Azure Storage" />
+    </form>
+    
+    <h3>Storage Configuration Test</h3>
+    <p>Storage Connection: 
+    <%
+    string storageConnection = ConfigurationManager.AppSettings["AzureStorageConnectionString"];
+    if (!string.IsNullOrEmpty(storageConnection))
+        Response.Write("<span style='color: green;'>✅ Configured</span>");
+    else
+        Response.Write("<span style='color: red;'>❌ Not Configured</span>");
+    %>
+    </p>
+</body>
+</html>
+
+Test File Upload Functionality
+Browse to: https://techcorp-web-app-prod.azurewebsites.net/file-upload.aspx
+Upload a test file
+Verify it appears in Azure Storage → documents container
+
+Phase 3: Azure Active Directory Integration
+Step 3.1: Configure Azure Active Directory
+
+Navigate to Azure Active Directory
+Azure Portal → Search "Azure Active Directory"
+Click "Azure Active Directory"
+
+Review Current Directory Settings
+Overview: Note your tenant name and ID
+Users: Check existing users
+Groups: Review existing groups
+
+Create TechCorp Security Groups
+Click "Groups" in left menu
+Click "New group"
+Group type: Security
+Group name: TechCorp-Admins
+Group description: TechCorp Manufacturing Administrators
+Membership type: Assigned
+Members: Add your user account
+Click "Create"
+
+Create Additional Groups
+Create "New group" again:
+Group name: TechCorp-Users
+Group description: TechCorp Manufacturing Standard Users
+Membership type: Assigned
+
+Create another group:
+Group name: TechCorp-ReadOnly
+Group description: TechCorp Manufacturing Read-Only Access
+
+Step 3.2: Configure App Service Authentication
+
+Enable App Service Authentication
+
+Go to App Services → techcorp-web-app-prod
+Click "Authentication" in left menu
+Click "Add identity provider"
+
+Configure Azure Active Directory Provider
+Identity provider: Microsoft
+Tenant type: Workforce
+App registration type: Create new app registration
+Name: TechCorp-WebApp-Auth
+Supported account types: Current tenant - Single tenant
+Restrict access: Require authentication
+Unauthenticated requests: HTTP 302 Found redirect: recommended for websites
+Token store: Enabled
+Click "Add"
+
+Test Authentication
+Browse to: https://techcorp-web-app-prod.azurewebsites.net
+Should redirect to Microsoft login
+Sign in with your Azure credentials
+Should redirect back to application after authentication
+
+
+Step 3.3: Configure Role-Based Access Control (RBAC)
+
+Assign Roles to Resource Group
+Go to Resource groups → rg-techcorp-migration
+Click "Access control (IAM)"
+Click "+ Add" → "Add role assignment"
+
+Add Admin Role Assignment
+Role: Owner
+Assign access to: User, group, or service principal
+Select: TechCorp-Admins group
+Click "Review + assign" → "Review + assign"
+
+Add User Role Assignment
+Click "+ Add" → "Add role assignment" again
+Role: Reader
+Assign access to: User, group, or service principal
+Select: TechCorp-Users group
+Click "Review + assign" → "Review + assign"
+
+
+Configure SQL Database Access
+Go to SQL databases → TechCorpDB-Prod
+Click "Access control (IAM)"
+Add role assignments for your Azure AD groups:
+
+TechCorp-Admins: SQL DB Contributor
+TechCorp-Users: SQL DB Contributor (for application access)
+
+
+Phase 4: Backup and Disaster Recovery Setup
+Step 4.1: Configure App Service Backup
+Set Up App Service Backup
+App Service → techcorp-web-app-prod
+Click "Backups" in left menu
+Click "Configure"
+Configure Backup Settings
+Storage Account: Select techcorpstorageprod
+Container: Select backups
+Backup name: techcorp-app-backup
+Backup schedule:
+
+Scheduled backups: On
+Backup frequency: Daily
+Start time: 02:00 (2 AM)
+Retention: 30 days
+Include databases: Yes
+Database: Select your Azure SQL Database
+Click "Save"
+
+Test Manual Backup
+Click "Backup Now"
+Backup name: manual-backup-day4-test
+Click "OK"
+Monitor backup progress (5-10 minutes)
+
+Step 4.2: Configure SQL Database Backup
+
+Review Automated Backups
+Go to SQL databases → TechCorpDB-Prod
+Click "Backup retention" in left menu
+Point-in-time restore retention: 7 days (default, adjust if needed)
+Long-term retention: Configure if needed for compliance
+
+Configure Geo-Replication (Optional)
+Click "Replicas" in left menu
+Click "Create replica"
+Server name: Create new server in different region
+Location: Choose different region (e.g., West US if primary is East US)
+Compute + storage: Match primary database
+Backup storage redundancy: Geo-redundant backup storage
+Click "Review + create" → "Create"
+
+
+Step 4.3: Create Disaster Recovery Plan
+
+Document Recovery Procedures
+Create disaster recovery documentation
+Include RTO (Recovery Time Objective) and RPO (Recovery Point Objective)
+Document step-by-step recovery procedures
+
+Test Recovery Process
+SQL Database → "Restore"
+Restore point: Point in time
+Select time: Earlier today
+Database name: TechCorpDB-Test-Restore
+Server: Same server
+Click "Review + create" → "Create"
+
+Verify Restored Database
+Connect to test database with SSMS
+Verify data integrity
+Important: Delete test database after verification to save costs
+
+Phase 5: Monitoring and Security Hardening
+Step 5.1: Configure Azure Monitor
+Set Up Application Insights Alerts
+Go to Application Insights (if created in Day 3)
+Or create new: "Create a resource" → "Application Insights"
+Name: techcorp-app-insights
+Resource Group: rg-techcorp-migration
+
+Configure Performance Alerts
+Application Insights → "Alerts"
+Click "New alert rule"
+Signal: Response time
+Condition: Greater than 5 seconds
+Action group: Create email notification
+Alert rule name: High-Response-Time-Alert
+Click "Create alert rule"
+
+Set Up Storage Monitoring
+Storage Account → "Insights"
+Review storage metrics and usage
+Set up alerts for storage capacity if needed
+
+Step 5.2: Security Configuration
+Enable Key Vault for Secrets Management
+"Create a resource" → "Key Vault"
+Name: techcorp-keyvault-prod
+Resource Group: rg-techcorp-migration
+Region: Same as other resources
+Pricing tier: Standard
+Click "Review + create" → "Create"
+Store Connection Strings in Key Vault
+Key Vault → "Secrets"
+Click "+ Generate/Import"
+Name: AzureSQLConnectionString
+Value: Your Azure SQL connection string
+Click "Create"
+
+Configure App Service to Use Key Vault
+App Service → "Configuration"
+Connection strings → Edit existing connection string
+Value: @Microsoft.KeyVault(SecretUri=https://techcorp-keyvault-prod.vault.azure.net/secrets/AzureSQLConnectionString/)
+Note: This requires managed identity setup (advanced configuration)
+
+Step 5.3: Network Security
+
+Configure App Service Network Restrictions
+App Service → "Networking"
+Access restrictions: Configure if needed for production
+Private endpoints: Consider for enhanced security
+
+Configure Storage Network Security
+Storage Account → "Networking"
+Firewalls and virtual networks: Configure access restrictions
+Allow trusted Microsoft services: Enabled
+
+Phase 6: Testing and Validation
+Step 6.1: End-to-End Testing
+Application Functionality Test
+Browse to: https://techcorp-web-app-prod.azurewebsites.net
+Authentication: Verify Azure AD login works
+Database: Test all pages load with Azure SQL data
+Storage: Test file upload functionality (if implemented)
+Performance: Check response times are acceptable
+
+Backup Recovery Test
+Verify automatic backup completed successfully
+Test manual backup creation
+Perform test database restore
+Validate backup integrity
+
+Security Testing
+Test unauthenticated access (should redirect to login)
+Verify role-based access controls
+Test storage access permissions
+
+
+
+Step 6.2: Performance Optimization
+
+Review Application Performance
+Application Insights → "Performance"
+Identify slow queries or operations
+Review dependency response times
+
+Optimize Storage Performance
+Review storage access patterns
+Consider CDN for frequently accessed files
+Optimize blob storage tiers based on access frequency
+
+
+Database Performance Tuning
+SQL Database → "Query Performance Insight"
+Review slow queries
+Implement recommended indexes
+
+Phase 7: Documentation and Handoff
+Step 7.1: Create Operational Documentation
+System Architecture Documentation
+Document complete cloud architecture
+Include network diagrams and data flow
+List all Azure resources and their purposes
+
+
+Operational Procedures
+Daily operational tasks
+Monitoring and alerting procedures
+Incident response procedures
+Backup and recovery procedures
+
+Security and Compliance
+Document security configurations
+Access control policies
+Data retention policies
+Compliance requirements
+
+Step 7.2: Knowledge Transfer
+
+Administrative Access
+Document administrator accounts and permissions
+Key Vault access procedures
+Emergency access procedures
+
+Troubleshooting Guide
+Common issues and resolutions
+Performance troubleshooting
+Backup and recovery troubleshooting
+Authentication issues
+
+Success Criteria for Part 4
+Storage Migration Checklist:
+ Azure Storage Account created and configured
+ Storage containers created (app-files, documents, backups)
+ App Service integrated with Azure Storage
+ File upload functionality tested and working
+ Existing files migrated to Azure Storage
+
+Identity and Access Management Checklist:
+ Azure Active Directory groups created
+ App Service authentication enabled with Azure AD
+ Role-based access control configured
+ Authentication testing completed successfully
+ Security groups assigned appropriate permissions
+
+Backup and Disaster Recovery Checklist:
+ App Service automated backup configured
+ SQL Database backup retention configured
+ Manual backup testing completed
+ Disaster recovery procedures documented
+ Recovery testing performed successfully
+
+Monitoring and Security Checklist:
+ Application Insights monitoring configured
+ Performance alerts set up
+ Key Vault created for secrets management
+ Network security configured
+ Security testing completed
+
+Key Metrics:
+Storage response time: < 2 seconds for file operations
+Authentication success rate: 100%
+Backup success rate: 100%
+Application availability: 99.9%+
+Security compliance: All security requirements met
+
+Troubleshooting Guide
+Storage Issues
+Problem: File upload fails with authentication error
+Solution:
+Verify App Service has correct storage connection string
+Check storage account access keys are valid
+Ensure App Service managed identity has storage permissions
+
+Problem: Storage connection string not working
+Solution:
+Regenerate storage access keys
+Update connection string in App Service configuration
+Restart App Service after configuration changes
+
+Authentication Issues
+Problem: Azure AD authentication not working
+Solution:
+Verify App Registration is configured correctly
+Check redirect URIs in App Registration
+Ensure users have appropriate permissions
+Clear browser cache and try again
+
+Problem: Users can't access application after authentication
+Solution:
+Check Azure AD group membership
+Verify RBAC role assignments
+Review App Service authentication logs
+
+Backup Issues
+Problem: Automated backup fails
+Solution:
+Check storage account permissions
+Verify backup storage container exists
+Review backup configuration settings
+Check App Service backup logs
+
+Problem: Database backup restoration fails
+Solution:
+Verify sufficient storage space
+Check database compatibility levels
+Review restore operation logs
+Ensure proper permissions on target server
+
+Performance Issues
+Problem: Application slow after Day 4 changes
+Solution:
+Review Application Insights performance data
+Check storage access patterns
+Optimize database queries
+Consider scaling up App Service plan
+
+Problem: File upload/download slow
+Solution:
+Check storage account region proximity
+Review network configuration
+Consider implementing CDN
+Optimize file sizes and formats
